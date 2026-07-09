@@ -16,10 +16,15 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func setupRouter(userHandler *httprest.UserHandlers) *gin.Engine {
+func setupRouter(userHandler *httprest.UserHandlers, refreshHandler *httprest.RefreshTokensHandlers) *gin.Engine {
 	r := gin.Default()
+
 	r.POST("/api/register", userHandler.Register)
 	r.POST("/api/login", userHandler.Login)
+
+	r.POST("/api/refresh", refreshHandler.RefreshToken)
+	r.POST("/api/revoke", refreshHandler.RevokeToken)
+
 	return r
 }
 
@@ -51,12 +56,14 @@ func New(cfg *config.Config) *App {
 
 	// 4. Service
 	userService := service.NewUserService(userRepo, passwordHasher, jwtManager, refreshTokensRepo)
+	refreshService := service.NewRefreshTokensService(refreshTokensRepo, jwtManager)
 
 	// 5. Handler
 	userHandler := httprest.NewUserHandlers(userService)
+	refreshHandler := httprest.NewRefreshTokensHandlers(refreshService)
 
 	// 6. Routing
-	router := setupRouter(userHandler)
+	router := setupRouter(userHandler, refreshHandler)
 
 	// 7. Build
 	return &App{
