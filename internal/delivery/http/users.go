@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/berezovskyivalerii/ecommerce-api/internal/models"
@@ -14,14 +15,14 @@ import (
 type UserService interface {
 	Register(ctx context.Context, user models.User, password string) (models.User, error)
 	Login(ctx context.Context, email, password string) (models.TokenPair, error)
+	GetUsers(ctx context.Context, page, limit int) (models.PaginatedUsers, error)
 }
 
 type UserHandlers struct {
 	usersService UserService
 }
 
-func NewUserHandlers(
-	userService UserService,
+func NewUserHandlers(userService UserService,
 ) *UserHandlers {
 	return &UserHandlers{
 		usersService: userService,
@@ -38,6 +39,7 @@ type CreateUserResponse struct {
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	Role      string    `json:"role"`
 }
 
 func (h *UserHandlers) Register(c *gin.Context) {
@@ -66,6 +68,7 @@ func (h *UserHandlers) Register(c *gin.Context) {
 		Email:     createdUser.Email,
 		CreatedAt: createdUser.CreatedAt,
 		UpdatedAt: createdUser.UpdatedAt,
+		Role:      createdUser.Role,
 	})
 }
 
@@ -104,4 +107,29 @@ func (h *UserHandlers) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": tokenPair.AccessToken,
 	})
+}
+
+func (h *UserHandlers) GetUsers(c *gin.Context) {
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	paginatedUsers, err := h.usersService.GetUsers(c.Request.Context(), page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("failed to fetch users: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, paginatedUsers)
 }

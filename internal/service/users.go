@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/berezovskyivalerii/ecommerce-api/internal/models"
@@ -12,7 +13,10 @@ import (
 
 type UserDB interface {
 	CreateUser(ctx context.Context, arg postgres.CreateUserParams) (postgres.CreateUserRow, error)
-	GetUsers(ctx context.Context) ([]postgres.GetUsersRow, error)
+	CreateAdmin(ctx context.Context, arg postgres.CreateAdminParams) (postgres.CreateAdminRow, error)
+	CountUsers(ctx context.Context) (int64, error)
+	GetUsers(ctx context.Context, arg postgres.GetUsersParams) ([]postgres.GetUsersRow, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (postgres.GetUserByIDRow, error)
 	GetUserByEmail(ctx context.Context, email string) (postgres.GetUserByEmailRow, error)
 }
 
@@ -22,7 +26,7 @@ type HashManager interface {
 }
 
 type JWTManager interface {
-	MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error)
+	MakeJWT(userID uuid.UUID, role string, tokenSecret string, expiresIn time.Duration) (string, error)
 	MakeRefreshToken() string
 }
 
@@ -51,6 +55,7 @@ func NewUserService(
 	}
 }
 
+// Register create user in database
 func (s *UserService) Register(ctx context.Context, user models.User, password string) (models.User, error) {
 	if password == "" || user.Email == "" {
 		return models.User{}, fmt.Errorf("email and password are required")
@@ -74,6 +79,7 @@ func (s *UserService) Register(ctx context.Context, user models.User, password s
 		CreatedAt: createdUser.CreatedAt,
 		UpdatedAt: createdUser.UpdatedAt,
 		Email:     createdUser.Email,
+		Role:      string(createdUser.Role),
 	}, nil
 }
 
@@ -93,7 +99,7 @@ func (s *UserService) Login(ctx context.Context, email, password string) (models
 		return models.TokenPair{}, fmt.Errorf("invalid credentials")
 	}
 
-	accessToken, err := s.jwtManager.MakeJWT(userRow.ID, "secret-123", time.Hour)
+	accessToken, err := s.jwtManager.MakeJWT(userRow.ID, string(userRow.Role), "secret-123", time.Hour)
 	if err != nil {
 		return models.TokenPair{}, fmt.Errorf("failed to generate token: %v", err)
 	}
@@ -114,4 +120,82 @@ func (s *UserService) Login(ctx context.Context, email, password string) (models
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
+}
+
+// GetUsers returns paginated list of users
+func (s *UserService) GetUsers(ctx context.Context, page, limit int) (models.PaginatedUsers, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	totalCount, err := s.db.CountUsers(ctx)
+	if err != nil {
+		return models.PaginatedUsers{}, fmt.Errorf("failed to count users: %v", err)
+	}
+
+	rows, err := s.db.GetUsers(ctx, postgres.GetUsersParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return models.PaginatedUsers{}, fmt.Errorf("failed to retrieve users: %v", err)
+	}
+
+	users := make([]models.User, 0, len(rows))
+	for _, row := range rows {
+		users = append(users, models.User{
+			ID:        row.ID,
+			CreatedAt: row.CreatedAt,
+			UpdatedAt: row.UpdatedAt,
+			Email:     row.Email,
+			Role:      string(row.Role),
+		})
+	}
+
+	totalPages := int(totalCount) / limit
+	if int(totalCount)%limit != 0 {
+		totalPages++
+	}
+
+	return models.PaginatedUsers{
+		Data:       users,
+		TotalCount: int(totalCount),
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+// SeedAdmin create user with admin role
+func SeedAdmin(ctx context.Context, db UserDB, hashManager HashManager, adminEmail, adminPassword string) {
+	if adminEmail == "" || adminPassword == "" {
+		log.Println("admin seeding skipped: credentials not provided in environment")
+		return
+	}
+
+	_, err := db.GetUserByEmail(ctx, adminEmail)
+	if err == nil {
+		log.Println("admin seeding skipped: email already registered")
+		return
+	}
+
+	hashedPassword, err := hashManager.HashPassword(adminPassword)
+	if err != nil {
+		log.Fatalf("failed to hash admin's password: %v", err)
+	}
+
+	_, err = db.CreateAdmin(ctx, postgres.CreateAdminParams{
+		Email:          adminEmail,
+		HashedPassword: hashedPassword,
+	})
+	if err != nil {
+		log.Fatalf("failed to seed admin user: %v", err)
+	}
+
+	log.Println("admin was successfully seeded")
 }
