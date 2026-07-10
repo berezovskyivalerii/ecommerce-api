@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/berezovskyivalerii/ecommerce-api/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -18,13 +19,16 @@ func New() *JWTManager {
 	return &JWTManager{}
 }
 
-func (m *JWTManager) MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
+func (m *JWTManager) MakeJWT(userID uuid.UUID, role string, tokenSecret string, expiresIn time.Duration) (string, error) {
 	// Create claims
-	claims := &jwt.RegisteredClaims{
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn)),
-		Issuer:    "eccommerce-api-access",
-		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
-		Subject:   userID.String(),
+	claims := models.CustomClaims{
+		Role: role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn)),
+			Issuer:    "eccommerce-api-access",
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+			Subject:   userID.String(),
+		},
 	}
 	// Create token with claims
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

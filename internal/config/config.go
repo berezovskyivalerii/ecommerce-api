@@ -1,13 +1,17 @@
 package config
 
 type Config struct {
-	ServerPort string
-	DBURL      string
+	ServerPort    string
+	DBURL         string
+	AdminEmail    string
+	AdminPassword string
 }
 
-func New(dbURL string) *Config {
+func New(dbURL, adminEmail, adminPassword string) *Config {
 	return &Config{
-		ServerPort: ":8080",
-		DBURL:      dbURL,
+		ServerPort:    ":8080",
+		DBURL:         dbURL,
+		AdminEmail:    adminEmail,
+		AdminPassword: adminPassword,
 	}
 }

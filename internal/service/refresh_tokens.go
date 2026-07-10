@@ -16,16 +16,19 @@ type RefreshTokensDB interface {
 }
 
 type RefreshTokensService struct {
-	db         RefreshTokensDB
+	refreshDB  RefreshTokensDB
+	userDB     UserDB
 	jwtManager JWTManager
 }
 
 func NewRefreshTokensService(
 	db RefreshTokensDB,
+	userDB UserDB,
 	jwtManager JWTManager,
 ) *RefreshTokensService {
 	return &RefreshTokensService{
-		db:         db,
+		refreshDB:  db,
+		userDB:     userDB,
 		jwtManager: jwtManager,
 	}
 }
@@ -35,7 +38,7 @@ func (s *RefreshTokensService) Create(ctx context.Context, req models.RefreshTok
 		return models.RefreshToken{}, fmt.Errorf("token and userID are required")
 	}
 
-	token, err := s.db.CreateRefreshToken(ctx, postgres.CreateRefreshTokenParams{
+	token, err := s.refreshDB.CreateRefreshToken(ctx, postgres.CreateRefreshTokenParams{
 		Token:     req.Token,
 		UserID:    req.UserID,
 		ExpiresAt: req.ExpiresAt,
@@ -60,7 +63,7 @@ func (s *RefreshTokensService) Refresh(ctx context.Context, token string) (model
 	}
 
 	// 1. Get refresh token from database
-	refreshToken, err := s.db.GetRefreshToken(ctx, token)
+	refreshToken, err := s.refreshDB.GetRefreshToken(ctx, token)
 	if err != nil {
 		return models.TokenPair{}, fmt.Errorf("error get refresh token fro DB: %v", err)
 	}
@@ -75,13 +78,18 @@ func (s *RefreshTokensService) Refresh(ctx context.Context, token string) (model
 	}
 
 	// 3. Revoke old token for safe
-	err = s.db.RevokeToken(ctx, token)
+	err = s.refreshDB.RevokeToken(ctx, token)
 	if err != nil {
 		return models.TokenPair{}, fmt.Errorf("failed to revoke old token: %v", err)
 	}
 
+	userWithRole, err := s.userDB.GetUserByID(ctx, refreshToken.UserID)
+	if err != nil {
+		return models.TokenPair{}, fmt.Errorf("failed to get user by id: %v", err)
+	}
+
 	// 4. Create new access token
-	accessToken, err := s.jwtManager.MakeJWT(refreshToken.UserID, "secret-123", time.Hour)
+	accessToken, err := s.jwtManager.MakeJWT(refreshToken.UserID, string(userWithRole.Role), "secret-123", time.Hour)
 	if err != nil {
 		return models.TokenPair{}, fmt.Errorf("error creating access token: %v", err)
 	}
@@ -110,7 +118,7 @@ func (s *RefreshTokensService) Revoke(ctx context.Context, token string) error {
 		return fmt.Errorf("token is empty")
 	}
 
-	err := s.db.RevokeToken(ctx, token)
+	err := s.refreshDB.RevokeToken(ctx, token)
 	if err != nil {
 		return fmt.Errorf("failed to revoke token: %v", err)
 	}

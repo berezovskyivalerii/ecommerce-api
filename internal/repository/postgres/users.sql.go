@@ -12,6 +12,56 @@ import (
 	"github.com/google/uuid"
 )
 
+const countUsers = `-- name: CountUsers :one
+SELECT COUNT(*) FROM users
+`
+
+func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createAdmin = `-- name: CreateAdmin :one
+INSERT INTO users (id, created_at,  updated_at, email, hashed_password, role)
+VALUES (
+  gen_random_uuid(),
+  NOW(),
+  NOW(),
+  $1,
+  $2,
+  'admin'
+)
+RETURNING id, created_at, updated_at, email, role
+`
+
+type CreateAdminParams struct {
+	Email          string
+	HashedPassword string
+}
+
+type CreateAdminRow struct {
+	ID        uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Email     string
+	Role      UserRole
+}
+
+func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (CreateAdminRow, error) {
+	row := q.db.QueryRowContext(ctx, createAdmin, arg.Email, arg.HashedPassword)
+	var i CreateAdminRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.Role,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, created_at, updated_at, email, hashed_password)
 VALUES (
@@ -21,7 +71,7 @@ VALUES (
   $1,
   $2
 )
-RETURNING id, created_at, updated_at, email
+RETURNING id, created_at, updated_at, email, role
 `
 
 type CreateUserParams struct {
@@ -34,6 +84,7 @@ type CreateUserRow struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Email     string
+	Role      UserRole
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
@@ -44,12 +95,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, created_at, updated_at, hashed_password
+SELECT id, created_at, updated_at, hashed_password, role
 FROM users
 WHERE email=$1
 `
@@ -59,6 +111,7 @@ type GetUserByEmailRow struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	HashedPassword string
+	Role           UserRole
 }
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
@@ -69,25 +122,62 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HashedPassword,
+		&i.Role,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, created_at, updated_at, hashed_password, email, role
+FROM users
+WHERE id=$1
+`
+
+type GetUserByIDRow struct {
+	ID             uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	HashedPassword string
+	Email          string
+	Role           UserRole
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserByID, id)
+	var i GetUserByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.HashedPassword,
+		&i.Email,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUsers = `-- name: GetUsers :many
-SELECT id, created_at, updated_at, email
+SELECT id, created_at, updated_at, email, role
 FROM users
 ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
 `
+
+type GetUsersParams struct {
+	Limit  int32
+	Offset int32
+}
 
 type GetUsersRow struct {
 	ID        uuid.UUID
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	Email     string
+	Role      UserRole
 }
 
-func (q *Queries) GetUsers(ctx context.Context) ([]GetUsersRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUsers)
+func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUsers, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +190,7 @@ func (q *Queries) GetUsers(ctx context.Context) ([]GetUsersRow, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Email,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}

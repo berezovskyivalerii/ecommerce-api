@@ -13,9 +13,12 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("no .env file found, relying on environment variables")
 	}
-	dbURL := os.Getenv("DB_URL")
 
-	cfg := config.New(dbURL)
+	dbURL := os.Getenv("DB_URL")
+	adminEmail := os.Getenv("ADMIN_EMAIL")
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
+
+	cfg := config.New(dbURL, adminEmail, adminPassword)
 
 	application := app.New(cfg)
 	if err := application.Run(); err != nil {

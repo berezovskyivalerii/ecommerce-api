@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 // UserRepository wraps the Store interface
@@ -22,12 +24,24 @@ func (r *UserRepository) CreateUser(ctx context.Context, arg CreateUserParams) (
 }
 
 // GetUsers retrieves all users
-func (r *UserRepository) GetUsers(ctx context.Context) ([]GetUsersRow, error) {
-	return r.store.GetUsers(ctx)
+func (r *UserRepository) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
+	return r.store.GetUsers(ctx, arg)
+}
+
+func (r *UserRepository) CountUsers(ctx context.Context) (int64, error) {
+	return r.store.CountUsers(ctx)
 }
 
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
 	return r.store.GetUserByEmail(ctx, email)
+}
+
+func (r *UserRepository) CreateAdmin(ctx context.Context, arg CreateAdminParams) (CreateAdminRow, error) {
+	return r.store.CreateAdmin(ctx, arg)
+}
+
+func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
+	return r.store.GetUserByID(ctx, id)
 }
 
 // ExampleTx demonstrates executing multiple queries within a single transaction

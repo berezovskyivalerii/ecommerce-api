@@ -3,8 +3,14 @@ package models
 import (
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
+
+type CustomClaims struct {
+	Role string `json:"role"`
+	jwt.RegisteredClaims
+}
 
 type TokenPair struct {
 	AccessToken  string

@@ -13,6 +13,51 @@ import (
 	"github.com/google/uuid"
 )
 
+type OrderStatus string
+
+const (
+	OrderStatusCreated   OrderStatus = "created"
+	OrderStatusPaid      OrderStatus = "paid"
+	OrderStatusShipped   OrderStatus = "shipped"
+	OrderStatusDelivered OrderStatus = "delivered"
+	OrderStatusCanceled  OrderStatus = "canceled"
+)
+
+func (e *OrderStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = OrderStatus(s)
+	case string:
+		*e = OrderStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for OrderStatus: %T", src)
+	}
+	return nil
+}
+
+type NullOrderStatus struct {
+	OrderStatus OrderStatus
+	Valid       bool // Valid is true if OrderStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullOrderStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.OrderStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.OrderStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullOrderStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.OrderStatus), nil
+}
+
 type PaymentStatus string
 
 const (
@@ -58,6 +103,48 @@ func (ns NullPaymentStatus) Value() (driver.Value, error) {
 	return string(ns.PaymentStatus), nil
 }
 
+type UserRole string
+
+const (
+	UserRoleUser  UserRole = "user"
+	UserRoleAdmin UserRole = "admin"
+)
+
+func (e *UserRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UserRole(s)
+	case string:
+		*e = UserRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UserRole: %T", src)
+	}
+	return nil
+}
+
+type NullUserRole struct {
+	UserRole UserRole
+	Valid    bool // Valid is true if UserRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUserRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.UserRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UserRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUserRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UserRole), nil
+}
+
 type CartItem struct {
 	ID        int32
 	CartID    sql.NullInt32
@@ -73,10 +160,28 @@ type Category struct {
 	UpdatedAt time.Time
 }
 
+type Order struct {
+	ID             int32
+	UserID         uuid.UUID
+	Status         OrderStatus
+	TotalAmountUsd string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type OrderItem struct {
+	ID        int32
+	OrderID   sql.NullInt32
+	ProductID sql.NullInt32
+	Quantity  int32
+	PriceUsd  string
+	CreatedAt time.Time
+}
+
 type Payment struct {
 	ID                    int32
 	UserID                uuid.UUID
-	CartID                sql.NullInt32
+	OrderID               sql.NullInt32
 	StripePaymentIntentID sql.NullString
 	Amount                int32
 	Currency              sql.NullString
@@ -118,4 +223,5 @@ type User struct {
 	UpdatedAt      time.Time
 	Email          string
 	HashedPassword string
+	Role           UserRole
 }
