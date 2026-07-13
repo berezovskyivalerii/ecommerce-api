@@ -33,6 +33,8 @@ func setupRouter(userHandler *httprest.UserHandlers, refreshHandler *httprest.Re
 		adminRoutes.Use(middleware.RequireRole("admin"))
 		{
 			adminRoutes.GET("/users", userHandler.GetUsers)
+			adminRoutes.PUT("/users/:id", userHandler.UpdateUser)
+			adminRoutes.DELETE("/users/:id", userHandler.DeleteUser)
 		}
 	}
 

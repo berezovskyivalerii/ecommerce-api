@@ -44,6 +44,14 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (GetUser
 	return r.store.GetUserByID(ctx, id)
 }
 
+func (r *UserRepository) UpdateUser(ctx context.Context, arg UpdateUserParams) (UpdateUserRow, error) {
+	return r.store.UpdateUser(ctx, arg)
+}
+
+func (r UserRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	return r.store.DeleteUser(ctx, id)
+}
+
 // ExampleTx demonstrates executing multiple queries within a single transaction
 func (r *UserRepository) ExampleTx(ctx context.Context, arg CreateUserParams) error {
 	return r.store.ExecTx(ctx, func(q Querier) error {
