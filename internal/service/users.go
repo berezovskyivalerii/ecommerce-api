@@ -18,6 +18,8 @@ type UserDB interface {
 	GetUsers(ctx context.Context, arg postgres.GetUsersParams) ([]postgres.GetUsersRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (postgres.GetUserByIDRow, error)
 	GetUserByEmail(ctx context.Context, email string) (postgres.GetUserByEmailRow, error)
+	UpdateUser(ctx context.Context, arg postgres.UpdateUserParams) (postgres.UpdateUserRow, error)
+	DeleteUser(ctx context.Context, id uuid.UUID) error
 }
 
 type HashManager interface {
@@ -169,6 +171,42 @@ func (s *UserService) GetUsers(ctx context.Context, page, limit int) (models.Pag
 		Limit:      limit,
 		TotalPages: totalPages,
 	}, nil
+}
+
+func (s *UserService) UpdateUser(ctx context.Context, email, password string, userID uuid.UUID) (models.User, error) {
+	if email == "" || password == "" {
+		return models.User{}, fmt.Errorf("email and password are required")
+	}
+
+	hashedPassword, err := s.hashManager.HashPassword(password)
+	if err != nil {
+		return models.User{}, fmt.Errorf("failed to hash password: %v", err)
+	}
+
+	updatedUser, err := s.db.UpdateUser(ctx, postgres.UpdateUserParams{
+		Email:          email,
+		HashedPassword: hashedPassword,
+		ID:             userID,
+	})
+	if err != nil {
+		return models.User{}, fmt.Errorf("failed to update user: %v", err)
+	}
+
+	return models.User{
+		ID:        updatedUser.ID,
+		CreatedAt: updatedUser.CreatedAt,
+		UpdatedAt: updatedUser.UpdatedAt,
+		Email:     updatedUser.Email,
+		Role:      string(updatedUser.Role),
+	}, nil
+}
+
+func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	if err := s.db.DeleteUser(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete user: %v", err)
+	}
+
+	return nil
 }
 
 // SeedAdmin create user with admin role
