@@ -1,3 +1,4 @@
+// Package app contains build application point
 package app
 
 import (
@@ -18,13 +19,20 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func setupRouter(userHandler *httprest.UserHandlers, refreshHandler *httprest.RefreshTokensHandlers) *gin.Engine {
+func setupRouter(
+	userHandler *httprest.UserHandlers,
+	refreshHandler *httprest.RefreshTokensHandlers,
+	categoriesHandler *httprest.CategoriesHandlers,
+) *gin.Engine {
 	r := gin.Default()
 
 	r.POST("/api/register", userHandler.Register)
 	r.POST("/api/login", userHandler.Login)
+
 	r.POST("/api/refresh", refreshHandler.RefreshToken)
 	r.POST("/api/revoke", refreshHandler.RevokeToken)
+
+	r.GET("/api/categories", categoriesHandler.GetCategories)
 
 	api := r.Group("/api")
 	api.Use(middleware.AuthMiddleware("secret-123"))
@@ -35,6 +43,10 @@ func setupRouter(userHandler *httprest.UserHandlers, refreshHandler *httprest.Re
 			adminRoutes.GET("/users", userHandler.GetUsers)
 			adminRoutes.PUT("/users/:id", userHandler.UpdateUser)
 			adminRoutes.DELETE("/users/:id", userHandler.DeleteUser)
+
+			adminRoutes.POST("/categories", categoriesHandler.CreateCategory)
+			adminRoutes.PUT("/categories/:id", categoriesHandler.UpdateCategory)
+			adminRoutes.DELETE("/categories/:id", categoriesHandler.DeleteCategory)
 		}
 	}
 
@@ -53,7 +65,8 @@ func New(cfg *config.Config) *App {
 		log.Fatalf("error opening database connection: %v", err)
 	}
 
-	if err := db.Ping(); err != nil {
+	err = db.Ping()
+	if err != nil {
 		log.Fatalf("error connecting to database: %v", err)
 	}
 
@@ -66,19 +79,22 @@ func New(cfg *config.Config) *App {
 
 	userRepo := postgres.NewUserRepository(store)
 	refreshTokensRepo := postgres.NewRefreshTokensRepository(store)
+	categoriesRepo := postgres.NewCategoryRepository(store)
 
 	service.SeedAdmin(context.Background(), userRepo, passwordHasher, cfg.AdminEmail, cfg.AdminPassword)
 
 	// 4. Service
 	userService := service.NewUserService(userRepo, passwordHasher, jwtManager, refreshTokensRepo)
 	refreshService := service.NewRefreshTokensService(refreshTokensRepo, userRepo, jwtManager)
+	categoriesService := service.NewCategoriesService(categoriesRepo)
 
 	// 5. Handler
 	userHandler := httprest.NewUserHandlers(userService)
 	refreshHandler := httprest.NewRefreshTokensHandlers(refreshService)
+	categoriesHandler := httprest.NewCategoriesHandlers(categoriesService)
 
 	// 6. Routing
-	router := setupRouter(userHandler, refreshHandler)
+	router := setupRouter(userHandler, refreshHandler, categoriesHandler)
 
 	// 7. Build
 	return &App{
