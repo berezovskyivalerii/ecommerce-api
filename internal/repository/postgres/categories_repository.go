@@ -32,3 +32,7 @@ func (r *CategoriesRepository) UpdateCategory(ctx context.Context, arg UpdateCat
 func (r *CategoriesRepository) DeleteCategory(ctx context.Context, id int32) error {
 	return r.store.DeleteCategory(ctx, id)
 }
+
+func (r *CategoriesRepository) GetCategoryByID(ctx context.Context, id int32) (Category, error) {
+	return r.store.GetCategoryByID(ctx, id)
+}

@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TYPE user_role AS ENUM (
-    'user',  
+    'user',
     'admin'
 );
 
@@ -37,7 +37,7 @@ CREATE TABLE products (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     price_usd NUMERIC(10, 2) NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 0,
-    category_id INT, 
+    category_id INT,
     CONSTRAINT fk_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 );
 
@@ -55,9 +55,9 @@ CREATE TABLE cart_items (
     id SERIAL PRIMARY KEY,
     cart_id INT REFERENCES shopping_cart(id) ON DELETE CASCADE,
     product_id INT REFERENCES products(id) ON DELETE CASCADE,
-    quantity INT DEFAULT 1 CHECK (quantity > 0), 
-    added_at TIMESTAMPTZ DEFAULT NOW(), 
-    UNIQUE (cart_id, product_id) 
+    quantity INT DEFAULT 1 CHECK (quantity > 0),
+    added_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (cart_id, product_id)
 );
 
 CREATE INDEX idx_cart_items_cart_id ON cart_items(cart_id);
@@ -96,23 +96,23 @@ CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX idx_order_items_product_id ON order_items(product_id);
 
 CREATE TYPE payment_status AS ENUM (
-    'pending',    
-    'processing', 
-    'succeeded',  
-    'failed',     
-    'canceled'    
+    'pending',
+    'processing',
+    'succeeded',
+    'failed',
+    'canceled'
 );
 
 CREATE TABLE payments (
     id SERIAL PRIMARY KEY,
-    user_id UUID NOT NULL,  
-    order_id INT, 
-    stripe_payment_intent_id VARCHAR(255) UNIQUE, 
-    amount INT NOT NULL, 
+    user_id UUID NOT NULL,
+    order_id INT,
+    stripe_payment_intent_id VARCHAR(255) UNIQUE,
+    amount INT NOT NULL,
     currency VARCHAR(3) DEFAULT 'usd',
     status payment_status DEFAULT 'pending',
-    error_message TEXT, 
-    created_at TIMESTAMPTZ DEFAULT NOW(),  
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT fk_payment_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_payment_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL
@@ -132,6 +132,6 @@ DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS users;
 
-DROP TYPE IF EXISTS payment_status; 
+DROP TYPE IF EXISTS payment_status;
 DROP TYPE IF EXISTS order_status;
 DROP TYPE IF EXISTS user_role;

@@ -12,6 +12,7 @@ type CategoriesDB interface {
 	CreateCategory(ctx context.Context, name string) (postgres.Category, error)
 	GetCategories(ctx context.Context) ([]postgres.Category, error)
 	UpdateCategory(ctx context.Context, arg postgres.UpdateCategoryParams) (postgres.Category, error)
+	GetCategoryByID(ctx context.Context, id int32) (postgres.Category, error)
 	DeleteCategory(ctx context.Context, id int32) error
 }
 
@@ -62,6 +63,14 @@ func (s *CategoriesService) GetCategories(ctx context.Context) ([]models.Categor
 	}
 
 	return categories, nil
+}
+
+func (s *CategoriesService) GetCategoryByID(ctx context.Context, id int32) (postgres.Category, error) {
+	category, err := s.db.GetCategoryByID(ctx, id)
+	if err != nil {
+		return postgres.Category{}, fmt.Errorf("error retrieving category: %v", err)
+	}
+	return category, nil
 }
 
 func (s *CategoriesService) UpdateCategory(ctx context.Context, name string, id int32) (models.Category, error) {
