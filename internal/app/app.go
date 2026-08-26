@@ -23,6 +23,7 @@ func setupRouter(
 	userHandler *httprest.UserHandlers,
 	refreshHandler *httprest.RefreshTokensHandlers,
 	categoriesHandler *httprest.CategoriesHandlers,
+	productsHandler *httprest.ProductsHandlers,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -33,6 +34,7 @@ func setupRouter(
 	r.POST("/api/revoke", refreshHandler.RevokeToken)
 
 	r.GET("/api/categories", categoriesHandler.GetCategories)
+	r.GET("/api/products", productsHandler.GetProducts)
 
 	api := r.Group("/api")
 	api.Use(middleware.AuthMiddleware("secret-123"))
@@ -47,6 +49,9 @@ func setupRouter(
 			adminRoutes.POST("/categories", categoriesHandler.CreateCategory)
 			adminRoutes.PUT("/categories/:id", categoriesHandler.UpdateCategory)
 			adminRoutes.DELETE("/categories/:id", categoriesHandler.DeleteCategory)
+
+			adminRoutes.POST("/products", productsHandler.CreateProduct)
+			adminRoutes.DELETE("/products/:id", productsHandler.DeleteProduct)
 		}
 	}
 
@@ -80,6 +85,7 @@ func New(cfg *config.Config) *App {
 	userRepo := postgres.NewUserRepository(store)
 	refreshTokensRepo := postgres.NewRefreshTokensRepository(store)
 	categoriesRepo := postgres.NewCategoryRepository(store)
+	productsRepo := postgres.NewProductsRepository(store)
 
 	service.SeedAdmin(context.Background(), userRepo, passwordHasher, cfg.AdminEmail, cfg.AdminPassword)
 
@@ -87,14 +93,16 @@ func New(cfg *config.Config) *App {
 	userService := service.NewUserService(userRepo, passwordHasher, jwtManager, refreshTokensRepo)
 	refreshService := service.NewRefreshTokensService(refreshTokensRepo, userRepo, jwtManager)
 	categoriesService := service.NewCategoriesService(categoriesRepo)
+	productsService := service.NewProductsService(productsRepo, categoriesRepo)
 
 	// 5. Handler
 	userHandler := httprest.NewUserHandlers(userService)
 	refreshHandler := httprest.NewRefreshTokensHandlers(refreshService)
 	categoriesHandler := httprest.NewCategoriesHandlers(categoriesService)
+	productsHandler := httprest.NewProductsHandlers(productsService)
 
 	// 6. Routing
-	router := setupRouter(userHandler, refreshHandler, categoriesHandler)
+	router := setupRouter(userHandler, refreshHandler, categoriesHandler, productsHandler)
 
 	// 7. Build
 	return &App{

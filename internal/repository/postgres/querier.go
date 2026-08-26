@@ -11,14 +11,20 @@ import (
 )
 
 type Querier interface {
+	CountProducts(ctx context.Context) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CreateAdmin(ctx context.Context, arg CreateAdminParams) (CreateAdminRow, error)
 	CreateCategory(ctx context.Context, name string) (Category, error)
+	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	DeleteCategory(ctx context.Context, id int32) error
+	DeleteProduct(ctx context.Context, id int32) error
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	GetCategories(ctx context.Context) ([]Category, error)
+	GetCategoryByID(ctx context.Context, id int32) (Category, error)
+	GetProductByID(ctx context.Context, id int32) (Product, error)
+	GetProducts(ctx context.Context, arg GetProductsParams) ([]Product, error)
 	GetRefreshToken(ctx context.Context, token string) (RefreshToken, error)
 	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)

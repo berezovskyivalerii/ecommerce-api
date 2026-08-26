@@ -1,5 +1,5 @@
 -- name: CreateCategory :one
-INSERT INTO categories (name, created_at, updated_at) 
+INSERT INTO categories (name, created_at, updated_at)
 VALUES (
   $1,
   NOW(),
@@ -10,6 +10,11 @@ RETURNING id, name, created_at, updated_at;
 -- name: GetCategories :many
 SELECT id, name, created_at, updated_at
 FROM categories;
+
+-- name: GetCategoryByID :one
+SELECT id, name, created_at, updated_at
+FROM categories
+WHERE id=$1;
 
 -- name: UpdateCategory :one
 UPDATE categories
