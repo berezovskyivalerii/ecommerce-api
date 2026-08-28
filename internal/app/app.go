@@ -34,7 +34,10 @@ func setupRouter(
 	r.POST("/api/revoke", refreshHandler.RevokeToken)
 
 	r.GET("/api/categories", categoriesHandler.GetCategories)
+	r.GET("/api/categories/:category_id/products", productsHandler.GetProductsByCategory)
+
 	r.GET("/api/products", productsHandler.GetProducts)
+	r.GET("/api/products/search", productsHandler.SearchProducts)
 
 	api := r.Group("/api")
 	api.Use(middleware.AuthMiddleware("secret-123"))
@@ -51,6 +54,7 @@ func setupRouter(
 			adminRoutes.DELETE("/categories/:id", categoriesHandler.DeleteCategory)
 
 			adminRoutes.POST("/products", productsHandler.CreateProduct)
+			adminRoutes.PUT("/products/:id", productsHandler.UpdateProduct)
 			adminRoutes.DELETE("/products/:id", productsHandler.DeleteProduct)
 		}
 	}
