@@ -21,6 +21,28 @@ func (q *Queries) CountProducts(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countProductsByCategoryID = `-- name: CountProductsByCategoryID :one
+SELECT COUNT(*) FROM products WHERE category_id=$1
+`
+
+func (q *Queries) CountProductsByCategoryID(ctx context.Context, categoryID sql.NullInt32) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countProductsByCategoryID, categoryID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSearchProducts = `-- name: CountSearchProducts :one
+SELECT COUNT(*) FROM products WHERE name ILIKE '%' || $1 || '%'
+`
+
+func (q *Queries) CountSearchProducts(ctx context.Context, dollar_1 sql.NullString) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSearchProducts, dollar_1)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createProduct = `-- name: CreateProduct :one
 INSERT INTO products(name, created_at, updated_at, price_usd, quantity, category_id)
 VALUES(
@@ -132,4 +154,130 @@ func (q *Queries) GetProducts(ctx context.Context, arg GetProductsParams) ([]Pro
 		return nil, err
 	}
 	return items, nil
+}
+
+const getProductsByCategoryID = `-- name: GetProductsByCategoryID :many
+SELECT id, name, created_at, updated_at, price_usd, quantity, category_id
+FROM products
+WHERE category_id=$1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetProductsByCategoryIDParams struct {
+	CategoryID sql.NullInt32
+	Limit      int32
+	Offset     int32
+}
+
+func (q *Queries) GetProductsByCategoryID(ctx context.Context, arg GetProductsByCategoryIDParams) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, getProductsByCategoryID, arg.CategoryID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Product
+	for rows.Next() {
+		var i Product
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PriceUsd,
+			&i.Quantity,
+			&i.CategoryID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchProducts = `-- name: SearchProducts :many
+SELECT id, name, created_at, updated_at, price_usd, quantity, category_id
+FROM products
+WHERE name ILIKE '%' || $1 || '%'
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type SearchProductsParams struct {
+	Column1 sql.NullString
+	Limit   int32
+	Offset  int32
+}
+
+func (q *Queries) SearchProducts(ctx context.Context, arg SearchProductsParams) ([]Product, error) {
+	rows, err := q.db.QueryContext(ctx, searchProducts, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Product
+	for rows.Next() {
+		var i Product
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PriceUsd,
+			&i.Quantity,
+			&i.CategoryID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateProduct = `-- name: UpdateProduct :one
+UPDATE products
+SET name=$1, price_usd=$2, quantity=$3, category_id=$4, updated_at=NOW()
+WHERE id=$5
+RETURNING id, name, created_at, updated_at, price_usd, quantity, category_id
+`
+
+type UpdateProductParams struct {
+	Name       string
+	PriceUsd   string
+	Quantity   int32
+	CategoryID sql.NullInt32
+	ID         int32
+}
+
+func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error) {
+	row := q.db.QueryRowContext(ctx, updateProduct,
+		arg.Name,
+		arg.PriceUsd,
+		arg.Quantity,
+		arg.CategoryID,
+		arg.ID,
+	)
+	var i Product
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PriceUsd,
+		&i.Quantity,
+		&i.CategoryID,
+	)
+	return i, err
 }

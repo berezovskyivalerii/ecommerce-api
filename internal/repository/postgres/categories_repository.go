@@ -16,7 +16,6 @@ func NewCategoryRepository(store Store) *CategoriesRepository {
 	}
 }
 
-// CreateCategory executes a single query using the embedded Querier
 func (r *CategoriesRepository) CreateCategory(ctx context.Context, name string) (Category, error) {
 	return r.store.CreateCategory(ctx, name)
 }
