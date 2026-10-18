@@ -11,17 +11,17 @@ import (
 )
 
 type ProductsDB interface {
-	CreateProduct(ctx context.Context, arg postgres.CreateProductParams) (postgres.Product, error)
-	GetProductByID(ctx context.Context, id int32) (postgres.Product, error)
-	GetProducts(ctx context.Context, arg postgres.GetProductsParams) ([]postgres.Product, error)
+	CreateProduct(ctx context.Context, arg postgres.CreateProductParams) (postgres.CreateProductRow, error)
+	GetProductByID(ctx context.Context, id int32) (postgres.GetProductByIDRow, error)
+	GetProducts(ctx context.Context, arg postgres.GetProductsParams) ([]postgres.GetProductsRow, error)
 	CountProducts(ctx context.Context) (int64, error)
 	DeleteProduct(ctx context.Context, id int32) error
 
-	UpdateProduct(ctx context.Context, arg postgres.UpdateProductParams) (postgres.Product, error)
-	GetProductsByCategoryID(ctx context.Context, arg postgres.GetProductsByCategoryIDParams) ([]postgres.Product, error)
+	UpdateProduct(ctx context.Context, arg postgres.UpdateProductParams) (postgres.UpdateProductRow, error)
+	GetProductsByCategoryID(ctx context.Context, arg postgres.GetProductsByCategoryIDParams) ([]postgres.GetProductsByCategoryIDRow, error)
 	CountProductsByCategoryID(ctx context.Context, categoryID sql.NullInt32) (int64, error)
-	SearchProducts(ctx context.Context, arg postgres.SearchProductsParams) ([]postgres.Product, error)
-	CountSearchProducts(ctx context.Context, dollar_1 sql.NullString) (int64, error)
+	SearchProducts(ctx context.Context, arg postgres.SearchProductsParams) ([]postgres.SearchProductsRow, error)
+	CountSearchProducts(ctx context.Context, websearchToTsquery string) (int64, error)
 }
 
 type CategoriesManager interface {
@@ -38,7 +38,7 @@ func NewProductsService(db ProductsDB, categories CategoriesManager) *ProductsSe
 }
 
 func (s *ProductsService) CreateProduct(ctx context.Context, product models.Product) (models.Product, error) {
-	if _, err := s.categories.GetCategoryByID(ctx, int32(product.CategotyID)); err != nil {
+	if _, err := s.categories.GetCategoryByID(ctx, int32(product.CategoryID)); err != nil {
 		return models.Product{}, fmt.Errorf("error: no category with such ID: %v", err)
 	}
 
@@ -46,12 +46,12 @@ func (s *ProductsService) CreateProduct(ctx context.Context, product models.Prod
 		Name:       product.Name,
 		PriceUsd:   strconv.FormatFloat(product.PriceUSD, 'f', -1, 64),
 		Quantity:   int32(product.Quantity),
-		CategoryID: sql.NullInt32{Int32: int32(product.CategotyID), Valid: true},
+		CategoryID: sql.NullInt32{Int32: int32(product.CategoryID), Valid: true},
 	})
 	if err != nil {
 		return models.Product{}, fmt.Errorf("error: cannot create product: %v", err)
 	}
-	priceUSD, _ := strconv.ParseFloat(productCreated.PriceUsd, 8)
+	priceUSD, _ := strconv.ParseFloat(productCreated.PriceUsd, 64)
 	return models.Product{
 		ID:         productCreated.ID,
 		Name:       productCreated.Name,
@@ -59,7 +59,7 @@ func (s *ProductsService) CreateProduct(ctx context.Context, product models.Prod
 		Quantity:   productCreated.Quantity,
 		CreatedAt:  productCreated.CreatedAt,
 		UpdatedAt:  productCreated.UpdatedAt,
-		CategotyID: productCreated.CategoryID.Int32,
+		CategoryID: productCreated.CategoryID.Int32,
 	}, nil
 }
 
@@ -88,7 +88,7 @@ func (s *ProductsService) GetProducts(ctx context.Context, page, limit int) (mod
 
 	products := make([]models.Product, 0, len(rows))
 	for _, row := range rows {
-		priceUSD, _ := strconv.ParseFloat(row.PriceUsd, 8)
+		priceUSD, _ := strconv.ParseFloat(row.PriceUsd, 64)
 		products = append(products, models.Product{
 			ID:         row.ID,
 			Name:       row.Name,
@@ -96,7 +96,7 @@ func (s *ProductsService) GetProducts(ctx context.Context, page, limit int) (mod
 			Quantity:   row.Quantity,
 			CreatedAt:  row.CreatedAt,
 			UpdatedAt:  row.UpdatedAt,
-			CategotyID: row.CategoryID.Int32,
+			CategoryID: row.CategoryID.Int32,
 		})
 	}
 
@@ -125,7 +125,7 @@ func (s *ProductsService) DeleteProduct(ctx context.Context, id int32) error {
 }
 
 func (s *ProductsService) UpdateProduct(ctx context.Context, id int32, product models.Product) (models.Product, error) {
-	if _, err := s.categories.GetCategoryByID(ctx, int32(product.CategotyID)); err != nil {
+	if _, err := s.categories.GetCategoryByID(ctx, int32(product.CategoryID)); err != nil {
 		return models.Product{}, fmt.Errorf("error: no category with such ID: %v", err)
 	}
 
@@ -134,13 +134,13 @@ func (s *ProductsService) UpdateProduct(ctx context.Context, id int32, product m
 		Name:       product.Name,
 		PriceUsd:   strconv.FormatFloat(product.PriceUSD, 'f', -1, 64),
 		Quantity:   int32(product.Quantity),
-		CategoryID: sql.NullInt32{Int32: int32(product.CategotyID), Valid: true},
+		CategoryID: sql.NullInt32{Int32: int32(product.CategoryID), Valid: true},
 	})
 	if err != nil {
 		return models.Product{}, fmt.Errorf("error: cannot update product: %v", err)
 	}
 
-	priceUSD, _ := strconv.ParseFloat(productUpdated.PriceUsd, 8)
+	priceUSD, _ := strconv.ParseFloat(productUpdated.PriceUsd, 64)
 	return models.Product{
 		ID:         productUpdated.ID,
 		Name:       productUpdated.Name,
@@ -148,7 +148,7 @@ func (s *ProductsService) UpdateProduct(ctx context.Context, id int32, product m
 		Quantity:   productUpdated.Quantity,
 		CreatedAt:  productUpdated.CreatedAt,
 		UpdatedAt:  productUpdated.UpdatedAt,
-		CategotyID: productUpdated.CategoryID.Int32,
+		CategoryID: productUpdated.CategoryID.Int32,
 	}, nil
 }
 
@@ -179,7 +179,7 @@ func (s *ProductsService) GetProductsByCategory(ctx context.Context, categoryID 
 
 	products := make([]models.Product, 0, len(rows))
 	for _, row := range rows {
-		priceUSD, _ := strconv.ParseFloat(row.PriceUsd, 8)
+		priceUSD, _ := strconv.ParseFloat(row.PriceUsd, 64)
 		products = append(products, models.Product{
 			ID:         row.ID,
 			Name:       row.Name,
@@ -187,7 +187,7 @@ func (s *ProductsService) GetProductsByCategory(ctx context.Context, categoryID 
 			Quantity:   row.Quantity,
 			CreatedAt:  row.CreatedAt,
 			UpdatedAt:  row.UpdatedAt,
-			CategotyID: row.CategoryID.Int32,
+			CategoryID: row.CategoryID.Int32,
 		})
 	}
 
@@ -214,17 +214,16 @@ func (s *ProductsService) SearchProducts(ctx context.Context, query string, page
 	}
 
 	offset := (page - 1) * limit
-	searchQuery := sql.NullString{String: query, Valid: true}
 
-	totalCount, err := s.db.CountSearchProducts(ctx, searchQuery)
+	totalCount, err := s.db.CountSearchProducts(ctx, query)
 	if err != nil {
 		return models.PaginatedProducts{}, fmt.Errorf("failed to count searched products: %v", err)
 	}
 
 	rows, err := s.db.SearchProducts(ctx, postgres.SearchProductsParams{
-		Column1: searchQuery,
-		Limit:   int32(limit),
-		Offset:  int32(offset),
+		WebsearchToTsquery: query,
+		Limit:              int32(limit),
+		Offset:             int32(offset),
 	})
 	if err != nil {
 		return models.PaginatedProducts{}, fmt.Errorf("failed to search products: %v", err)
@@ -232,7 +231,7 @@ func (s *ProductsService) SearchProducts(ctx context.Context, query string, page
 
 	products := make([]models.Product, 0, len(rows))
 	for _, row := range rows {
-		priceUSD, _ := strconv.ParseFloat(row.PriceUsd, 8)
+		priceUSD, _ := strconv.ParseFloat(row.PriceUsd, 64)
 		products = append(products, models.Product{
 			ID:         row.ID,
 			Name:       row.Name,
@@ -240,7 +239,7 @@ func (s *ProductsService) SearchProducts(ctx context.Context, query string, page
 			Quantity:   row.Quantity,
 			CreatedAt:  row.CreatedAt,
 			UpdatedAt:  row.UpdatedAt,
-			CategotyID: row.CategoryID.Int32,
+			CategoryID: row.CategoryID.Int32,
 		})
 	}
 

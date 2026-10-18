@@ -14,11 +14,11 @@ import (
 type Querier interface {
 	CountProducts(ctx context.Context) (int64, error)
 	CountProductsByCategoryID(ctx context.Context, categoryID sql.NullInt32) (int64, error)
-	CountSearchProducts(ctx context.Context, dollar_1 sql.NullString) (int64, error)
+	CountSearchProducts(ctx context.Context, websearchToTsquery string) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CreateAdmin(ctx context.Context, arg CreateAdminParams) (CreateAdminRow, error)
 	CreateCategory(ctx context.Context, name string) (Category, error)
-	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
+	CreateProduct(ctx context.Context, arg CreateProductParams) (CreateProductRow, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	DeleteCategory(ctx context.Context, id int32) error
@@ -26,17 +26,17 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	GetCategories(ctx context.Context) ([]Category, error)
 	GetCategoryByID(ctx context.Context, id int32) (Category, error)
-	GetProductByID(ctx context.Context, id int32) (Product, error)
-	GetProducts(ctx context.Context, arg GetProductsParams) ([]Product, error)
-	GetProductsByCategoryID(ctx context.Context, arg GetProductsByCategoryIDParams) ([]Product, error)
+	GetProductByID(ctx context.Context, id int32) (GetProductByIDRow, error)
+	GetProducts(ctx context.Context, arg GetProductsParams) ([]GetProductsRow, error)
+	GetProductsByCategoryID(ctx context.Context, arg GetProductsByCategoryIDParams) ([]GetProductsByCategoryIDRow, error)
 	GetRefreshToken(ctx context.Context, token string) (RefreshToken, error)
 	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
 	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
 	RevokeToken(ctx context.Context, token string) error
-	SearchProducts(ctx context.Context, arg SearchProductsParams) ([]Product, error)
+	SearchProducts(ctx context.Context, arg SearchProductsParams) ([]SearchProductsRow, error)
 	UpdateCategory(ctx context.Context, arg UpdateCategoryParams) (Category, error)
-	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) (UpdateProductRow, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (UpdateUserRow, error)
 }
 

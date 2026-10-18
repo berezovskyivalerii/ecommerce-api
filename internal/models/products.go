@@ -9,7 +9,7 @@ type Product struct {
 	UpdatedAt  time.Time
 	PriceUSD   float64
 	Quantity   int32
-	CategotyID int32
+	CategoryID int32
 }
 
 type PaginatedProducts struct {
