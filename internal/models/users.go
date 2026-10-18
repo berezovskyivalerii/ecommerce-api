@@ -7,12 +7,12 @@ import (
 )
 
 type User struct {
-	ID             uuid.UUID
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	HashedPassword string
-	Email          string
-	Role           string
+	ID             uuid.UUID `json:"id"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	HashedPassword string    `json:"-"`
+	Email          string    `json:"email"`
+	Role           string    `json:"role"`
 }
 
 type PaginatedUsers struct {

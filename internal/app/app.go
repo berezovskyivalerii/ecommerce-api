@@ -19,6 +19,15 @@ import (
 	_ "github.com/lib/pq"
 )
 
+func SetupRouter(
+	userHandler *httprest.UserHandlers,
+	refreshHandler *httprest.RefreshTokensHandlers,
+	categoriesHandler *httprest.CategoriesHandlers,
+	productsHandler *httprest.ProductsHandlers,
+) *gin.Engine {
+	return setupRouter(userHandler, refreshHandler, categoriesHandler, productsHandler)
+}
+
 func setupRouter(
 	userHandler *httprest.UserHandlers,
 	refreshHandler *httprest.RefreshTokensHandlers,
@@ -34,18 +43,24 @@ func setupRouter(
 	r.POST("/api/revoke", refreshHandler.RevokeToken)
 
 	r.GET("/api/categories", categoriesHandler.GetCategories)
+	r.GET("/api/categories/:category_id", categoriesHandler.GetCategoryByID)
 	r.GET("/api/categories/:category_id/products", productsHandler.GetProductsByCategory)
 
 	r.GET("/api/products", productsHandler.GetProducts)
 	r.GET("/api/products/search", productsHandler.SearchProducts)
+	r.GET("/api/products/:id", productsHandler.GetProductByID)
 
 	api := r.Group("/api")
 	api.Use(middleware.AuthMiddleware("secret-123"))
 	{
+		api.GET("/users/me", userHandler.GetCurrentUser)
+		api.PUT("/users/me", userHandler.UpdateCurrentUser)
+
 		adminRoutes := api.Group("/admin")
 		adminRoutes.Use(middleware.RequireRole("admin"))
 		{
 			adminRoutes.GET("/users", userHandler.GetUsers)
+			adminRoutes.GET("/users/:id", userHandler.GetUserByID)
 			adminRoutes.PUT("/users/:id", userHandler.UpdateUser)
 			adminRoutes.DELETE("/users/:id", userHandler.DeleteUser)
 
@@ -79,6 +94,10 @@ func New(cfg *config.Config) *App {
 		log.Fatalf("error connecting to database: %v", err)
 	}
 
+	return NewWithDB(cfg, db)
+}
+
+func NewWithDB(cfg *config.Config, db *sql.DB) *App {
 	// 1. Utilities
 	passwordHasher := hasher.New()
 	jwtManager := jwtmanager.New()

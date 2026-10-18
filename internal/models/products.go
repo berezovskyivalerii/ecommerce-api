@@ -3,13 +3,13 @@ package models
 import "time"
 
 type Product struct {
-	ID         int32
-	Name       string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	PriceUSD   float64
-	Quantity   int32
-	CategoryID int32
+	ID         int32     `json:"id"`
+	Name       string    `json:"name"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	PriceUSD   float64   `json:"price_usd"`
+	Quantity   int32     `json:"quantity"`
+	CategoryID int32     `json:"category_id"`
 }
 
 type PaginatedProducts struct {

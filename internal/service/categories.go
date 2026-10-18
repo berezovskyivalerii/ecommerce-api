@@ -66,6 +66,9 @@ func (s *CategoriesService) GetCategories(ctx context.Context) ([]models.Categor
 }
 
 func (s *CategoriesService) GetCategoryByID(ctx context.Context, id int32) (postgres.Category, error) {
+	if id < 1 {
+		return postgres.Category{}, fmt.Errorf("invalid category id")
+	}
 	category, err := s.db.GetCategoryByID(ctx, id)
 	if err != nil {
 		return postgres.Category{}, fmt.Errorf("error retrieving category: %v", err)

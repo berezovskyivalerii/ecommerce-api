@@ -173,6 +173,26 @@ func (s *UserService) GetUsers(ctx context.Context, page, limit int) (models.Pag
 	}, nil
 }
 
+// GetUserByID returns a single user by UUID
+func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID) (models.User, error) {
+	if id == uuid.Nil {
+		return models.User{}, fmt.Errorf("invalid user id")
+	}
+
+	row, err := s.db.GetUserByID(ctx, id)
+	if err != nil {
+		return models.User{}, fmt.Errorf("failed to retrieve user: %v", err)
+	}
+
+	return models.User{
+		ID:        row.ID,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+		Email:     row.Email,
+		Role:      string(row.Role),
+	}, nil
+}
+
 func (s *UserService) UpdateUser(ctx context.Context, email, password string, userID uuid.UUID) (models.User, error) {
 	if email == "" || password == "" {
 		return models.User{}, fmt.Errorf("email and password are required")

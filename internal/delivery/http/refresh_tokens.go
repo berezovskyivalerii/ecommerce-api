@@ -33,10 +33,11 @@ func (h *RefreshTokensHandlers) RefreshToken(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": "refresh token not found",
 		})
+		return
 	}
 	tokenPair, err := h.refreshTokensService.Refresh(c.Request.Context(), tokenString)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": fmt.Sprintf("error getting access token: %v", err),
 		})
 		return
@@ -45,7 +46,7 @@ func (h *RefreshTokensHandlers) RefreshToken(c *gin.Context) {
 	c.SetCookie(
 		"refresh_token",
 		tokenPair.RefreshToken,
-		int(60*24*time.Hour),
+		int((60 * 24 * time.Hour).Seconds()),
 		"/",
 		"",
 		true,
