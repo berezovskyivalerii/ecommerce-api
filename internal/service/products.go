@@ -114,8 +114,28 @@ func (s *ProductsService) GetProducts(ctx context.Context, page, limit int) (mod
 	}, nil
 }
 
+func (s *ProductsService) GetProductByID(ctx context.Context, id int32) (models.Product, error) {
+	if id < 1 {
+		return models.Product{}, fmt.Errorf("invalid id format: ID must be more than 0")
+	}
+	row, err := s.db.GetProductByID(ctx, id)
+	if err != nil {
+		return models.Product{}, fmt.Errorf("failed to retrieve product: %v", err)
+	}
+	priceUSD, _ := strconv.ParseFloat(row.PriceUsd, 64)
+	return models.Product{
+		ID:         row.ID,
+		Name:       row.Name,
+		PriceUSD:   priceUSD,
+		Quantity:   row.Quantity,
+		CreatedAt:  row.CreatedAt,
+		UpdatedAt:  row.UpdatedAt,
+		CategoryID: row.CategoryID.Int32,
+	}, nil
+}
+
 func (s *ProductsService) DeleteProduct(ctx context.Context, id int32) error {
-	if id < 0 {
+	if id < 1 {
 		return fmt.Errorf("invalid id format: ID must be more than 0")
 	}
 	if err := s.db.DeleteProduct(ctx, id); err != nil {

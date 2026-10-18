@@ -34,7 +34,7 @@ func NewRefreshTokensService(
 }
 
 func (s *RefreshTokensService) Create(ctx context.Context, req models.RefreshToken) (models.RefreshToken, error) {
-	if req.Token == "" || req.UserID.String() == "" {
+	if req.Token == "" || req.UserID.String() == "" || req.UserID.String() == "00000000-0000-0000-0000-000000000000" {
 		return models.RefreshToken{}, fmt.Errorf("token and userID are required")
 	}
 
@@ -47,13 +47,18 @@ func (s *RefreshTokensService) Create(ctx context.Context, req models.RefreshTok
 		return models.RefreshToken{}, fmt.Errorf("failed to create refresh token: %v", err)
 	}
 
+	var revokedAt *time.Time
+	if token.RevokedAt.Valid {
+		revokedAt = &token.RevokedAt.Time
+	}
+
 	return models.RefreshToken{
 		Token:     token.Token,
 		CreatedAt: token.CreatedAt,
 		UpdatedAt: token.UpdatedAt,
 		UserID:    token.UserID,
 		ExpiresAt: token.ExpiresAt,
-		RevokedAt: &token.RevokedAt.Time,
+		RevokedAt: revokedAt,
 	}, nil
 }
 

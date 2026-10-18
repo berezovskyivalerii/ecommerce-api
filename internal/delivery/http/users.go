@@ -2,7 +2,6 @@ package httprest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -17,6 +16,7 @@ type UserService interface {
 	Register(ctx context.Context, user models.User, password string) (models.User, error)
 	Login(ctx context.Context, email, password string) (models.TokenPair, error)
 	GetUsers(ctx context.Context, page, limit int) (models.PaginatedUsers, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (models.User, error)
 	UpdateUser(ctx context.Context, email, password string, userID uuid.UUID) (models.User, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 }
@@ -25,8 +25,7 @@ type UserHandlers struct {
 	usersService UserService
 }
 
-func NewUserHandlers(userService UserService,
-) *UserHandlers {
+func NewUserHandlers(userService UserService) *UserHandlers {
 	return &UserHandlers{
 		usersService: userService,
 	}
@@ -47,20 +46,21 @@ type CreateUserResponse struct {
 
 func (h *UserHandlers) Register(c *gin.Context) {
 	var req CreateUserRequest
-	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": fmt.Sprintf("failed to decode request: %v", err),
 		})
 		return
 	}
 
-	user := &models.User{
+	user := models.User{
 		Email: req.Email,
 	}
 
-	createdUser, err := h.usersService.Register(c.Request.Context(), *user, req.Password)
+	createdUser, err := h.usersService.Register(c.Request.Context(), user, req.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   fmt.Sprintf("failed to create user: %v", err),
 			"message": fmt.Sprintf("failed to create user: %v", err),
 		})
 		return
@@ -82,7 +82,7 @@ type LoginUserRequest struct {
 
 func (h *UserHandlers) Login(c *gin.Context) {
 	var req LoginUserRequest
-	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": fmt.Sprintf("failed to decode request: %v", err),
 		})
@@ -100,7 +100,7 @@ func (h *UserHandlers) Login(c *gin.Context) {
 	c.SetCookie(
 		"refresh_token",
 		tokenPair.RefreshToken,
-		int(60*24*time.Hour),
+		int((60 * 24 * time.Hour).Seconds()),
 		"/",
 		"",
 		true,
@@ -109,6 +109,75 @@ func (h *UserHandlers) Login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"access_token": tokenPair.AccessToken,
+	})
+}
+
+func (h *UserHandlers) GetCurrentUser(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthorized",
+		})
+		return
+	}
+
+	userIDStr, ok := userIDVal.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid user id in context",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid user id format",
+		})
+		return
+	}
+
+	user, err := h.usersService.GetUserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": fmt.Sprintf("user not found: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, CreateUserResponse{
+		ID:        user.ID.String(),
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Role:      user.Role,
+	})
+}
+
+func (h *UserHandlers) GetUserByID(c *gin.Context) {
+	userIDStr := c.Param("id")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid user id format",
+		})
+		return
+	}
+
+	user, err := h.usersService.GetUserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": fmt.Sprintf("user not found: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, CreateUserResponse{
+		ID:        user.ID.String(),
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Role:      user.Role,
 	})
 }
 
@@ -150,11 +219,19 @@ type UpdateUserResponse struct {
 	Role      string    `json:"role"`
 }
 
-func (h *UserHandlers) UpdateUser(c *gin.Context) {
-	userIDStr := c.Param("id")
-	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "user id required in path",
+func (h *UserHandlers) UpdateCurrentUser(c *gin.Context) {
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthorized",
+		})
+		return
+	}
+
+	userIDStr, ok := userIDVal.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "invalid user id in context",
 		})
 		return
 	}
@@ -192,15 +269,43 @@ func (h *UserHandlers) UpdateUser(c *gin.Context) {
 	})
 }
 
-func (h *UserHandlers) DeleteUser(c *gin.Context) {
+func (h *UserHandlers) UpdateUser(c *gin.Context) {
 	userIDStr := c.Param("id")
-	if userIDStr == "" {
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "user id required in path",
+			"error": "invalid user id format",
 		})
 		return
 	}
 
+	var req UpdateUserRequest
+	if err = c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("failed to decode request: %v", err),
+		})
+		return
+	}
+
+	updatedUser, err := h.usersService.UpdateUser(c.Request.Context(), req.Email, req.Password, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("failed to update user: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, UpdateUserResponse{
+		ID:        updatedUser.ID.String(),
+		Email:     updatedUser.Email,
+		CreatedAt: updatedUser.CreatedAt,
+		UpdatedAt: updatedUser.UpdatedAt,
+		Role:      updatedUser.Role,
+	})
+}
+
+func (h *UserHandlers) DeleteUser(c *gin.Context) {
+	userIDStr := c.Param("id")
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{

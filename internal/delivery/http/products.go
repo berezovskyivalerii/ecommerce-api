@@ -13,6 +13,7 @@ import (
 type ProductsService interface {
 	CreateProduct(ctx context.Context, product models.Product) (models.Product, error)
 	GetProducts(ctx context.Context, page, limit int) (models.PaginatedProducts, error)
+	GetProductByID(ctx context.Context, id int32) (models.Product, error)
 	DeleteProduct(ctx context.Context, id int32) error
 	UpdateProduct(ctx context.Context, id int32, product models.Product) (models.Product, error)
 	GetProductsByCategory(ctx context.Context, categoryID int32, page, limit int) (models.PaginatedProducts, error)
@@ -112,6 +113,27 @@ func (h *ProductsHandlers) GetProducts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, products)
+}
+
+func (h *ProductsHandlers) GetProductByID(c *gin.Context) {
+	productIDStr := c.Param("id")
+	productID, err := strconv.Atoi(productIDStr)
+	if err != nil || productID < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid product id format",
+		})
+		return
+	}
+
+	product, err := h.service.GetProductByID(c.Request.Context(), int32(productID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": fmt.Sprintf("product not found: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, product)
 }
 
 func (h *ProductsHandlers) GetProductsByCategory(c *gin.Context) {
