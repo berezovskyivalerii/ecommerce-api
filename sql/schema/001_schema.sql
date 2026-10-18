@@ -38,10 +38,14 @@ CREATE TABLE products (
     price_usd NUMERIC(10, 2) NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 0,
     category_id INT,
+    search_vector tsvector GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(name, '')), 'A')
+    ) STORED,
     CONSTRAINT fk_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_products_category_id ON products(category_id);
+CREATE INDEX idx_products_search_vector ON products USING gin (search_vector);
 
 CREATE TABLE shopping_cart (
     id SERIAL PRIMARY KEY,

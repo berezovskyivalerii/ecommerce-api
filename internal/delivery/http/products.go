@@ -49,7 +49,7 @@ func (h *ProductsHandlers) CreateProduct(c *gin.Context) {
 		Name:       req.Name,
 		PriceUSD:   req.PriceUSD,
 		Quantity:   req.Quantity,
-		CategotyID: req.CategoryID,
+		CategoryID: req.CategoryID,
 	}
 
 	createdProduct, err := h.service.CreateProduct(c.Request.Context(), product)
@@ -85,7 +85,7 @@ func (h *ProductsHandlers) UpdateProduct(c *gin.Context) {
 		Name:       req.Name,
 		PriceUSD:   req.PriceUSD,
 		Quantity:   req.Quantity,
-		CategotyID: req.CategoryID,
+		CategoryID: req.CategoryID,
 	}
 
 	updatedProduct, err := h.service.UpdateProduct(c.Request.Context(), int32(productID), product)

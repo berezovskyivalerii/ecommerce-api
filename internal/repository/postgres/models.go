@@ -192,13 +192,14 @@ type Payment struct {
 }
 
 type Product struct {
-	ID         int32
-	Name       string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	PriceUsd   string
-	Quantity   int32
-	CategoryID sql.NullInt32
+	ID           int32
+	Name         string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	PriceUsd     string
+	Quantity     int32
+	CategoryID   sql.NullInt32
+	SearchVector interface{}
 }
 
 type RefreshToken struct {
